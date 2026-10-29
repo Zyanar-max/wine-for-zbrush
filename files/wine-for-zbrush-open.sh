@@ -16,6 +16,34 @@ PREFIX='@PREFIX@'
 
 winpath() { printf 'Z:%s' "$(realpath -- "$1" | sed 's|/|\\|g')"; }
 
+# Bottles Flatpak sometimes leaves a dead session behind: Wine's services (services.exe,
+# winedevice.exe, ...) keep running in the old sandbox after its wineserver is gone, and the next
+# start on the same bottle can hang without a window. Close such a sandbox, but only if it belongs
+# to this bottle, its wineserver is gone, and no program and no Bottles window is left in it.
+cleanup_stale() {
+    case "$CLI" in flatpak*) ;; *) return 0 ;; esac
+    for p in /proc/[0-9]*; do
+        info="$p/root/.flatpak-info"
+        grep -qxF 'name=com.usebottles.bottles' "$info" 2>/dev/null || continue
+        inst=$(sed -n 's/^instance-id=//p' "$info" 2>/dev/null)
+        [ -n "$inst" ] || continue
+        if tr '\0' '\n' < "$p/environ" 2>/dev/null | grep -qxF "WINEPREFIX=$PREFIX"; then mine=1; else mine=0; fi
+        case "$(cat "$p/comm" 2>/dev/null)" in
+        services.exe|winedevice.exe|plugplay.exe|svchost.exe|rpcss.exe|lsass.exe|explorer.exe|conhost.exe|tabtip.exe|rundll32.exe)
+            kind=service ;;
+        bwrap|xdg-dbus-proxy|bottles-cli|start.exe|sh|bash)
+            kind=other ;;
+        *)  kind=busy ;;         # wineserver, a program, the Bottles window ...
+        esac
+        echo "$inst $kind $mine"
+    done | awk '{ if ($2 == "busy") busy[$1] = 1; if ($2 == "service" && $3 == 1) left[$1] = 1 }
+                END { for (i in left) if (!(i in busy)) print i }' |
+    while read -r inst; do
+        flatpak kill "$inst" 2>/dev/null && sleep 1
+    done
+    return 0
+}
+
 zpid=
 for p in $(pgrep -x ZBrush.exe); do
     if tr '\0' '\n' < "/proc/$p/environ" 2>/dev/null | grep -qxF "WINEPREFIX=$PREFIX"; then
@@ -38,6 +66,7 @@ if [ -z "$1" ]; then
         notify-send -u critical -i wine-for-zbrush "ZBrush is already running" "Only one ZBrush can run at a time."
         exit 0
     fi
+    cleanup_stale
     exec $CLI run -b "$BOTTLE" -p "$PROGRAM"
 fi
 file=$(winpath "$1") || exit 1
@@ -55,7 +84,7 @@ flatpak*)
     ;;
 esac
 
-[ -z "$zpid" ] && exec $CLI run -b "$BOTTLE" -p "$PROGRAM" "$file"
+[ -z "$zpid" ] && { cleanup_stale; exec $CLI run -b "$BOTTLE" -p "$PROGRAM" "$file"; }
 
 getenv() { tr '\0' '\n' < "/proc/$zpid/environ" | sed -n "s/^$1=//p" | head -n 1; }
 exe=$(tr '\0' '\n' < "/proc/$zpid/cmdline" | head -n 1 | sed 's/ *$//')

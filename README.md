@@ -47,6 +47,8 @@ To use it from the dock or the app menu, point your ZBrush menu entry (`.desktop
 Exec=/home/YOU/.local/bin/wine-for-zbrush-open
 ```
 
+Before it starts the program, the launcher also closes a dead Bottles sandbox of the same bottle, if one was left behind: Wine's services (services.exe, winedevice.exe, ...) still running without a wineserver. Otherwise the next start can hang without a window. It never closes a sandbox that still has a wineserver, a program or the Bottles window in it.
+
 Starting ZBrush with the ▶ button in the Bottles window isn't protected.
 
 The handler's notifications are urgent, so GNOME shows them on top of a fullscreen ZBrush too. They stay until you close them.

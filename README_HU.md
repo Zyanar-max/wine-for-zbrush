@@ -47,6 +47,8 @@ Hogy a dokkról vagy az alkalmazásmenüből is így induljon, a ZBrush menübej
 Exec=/home/FELHASZNÁLÓ/.local/bin/wine-for-zbrush-open
 ```
 
+Indítás előtt az indító bezárja ugyanennek a bottle-nek az esetleg bent maradt, halott Bottles dobozát is: amikor a Wine szolgáltatásai (services.exe, winedevice.exe …) még futnak, de a wineserver már nem. Enélkül a következő indítás ablak nélkül beragadhat. Olyan dobozt soha nem zár be, amiben még fut a wineserver, egy program vagy a Bottles ablaka.
+
 Ha a Bottles ablakában a ▶ gombbal indítod a ZBrusht, az nincs védve.
 
 A kezelő értesítései sürgősek, így a GNOME a teljes képernyős ZBrush fölött is megmutatja őket. Addig maradnak kint, amíg be nem zárod őket.
