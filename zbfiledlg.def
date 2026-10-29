@@ -1,0 +1,4 @@
+LIBRARY zbfiledlg.dll
+EXPORTS
+ DllGetClassObject PRIVATE
+ DllCanUnloadNow PRIVATE

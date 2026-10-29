@@ -14,7 +14,7 @@ Javítások ahhoz, hogy a **ZBrush** Linuxon, **Bottles**-ben rendesen működj�
 | 4 | Csúnya, windowsos Open/Import/Save/Export ablak | A Linuxod saját fájlválasztója (GNOME/KDE) jön fel |
 | 5 | A Decimation Master 90%-nál elakad vagy összeomlik | Ellenőrzi a Microsoft-féle `vcomp140`-et és a beállítást |
 | 6 | Betöltéskor 5 mp után: *„ZBrush is not responding”* | Opcionális: a GNOME 20 mp-et vár |
-| 7 | A .ztl / .zpr fájlok üres lapként látszanak, és nem nyílnak meg | A ZBrush saját fájlikonjai, és dupla kattintásra megnyílnak a ZBrushban |
+| 7 | A ZBrush-fájlok (.ztl, .zpr, .zbp, .zmt, .zsc…) üres lapként látszanak, és nem nyílnak meg | A ZBrush saját fájlikonjai, és dupla kattintásra megnyílnak a ZBrushban |
 
 ## Ami kell hozzá
 
@@ -34,6 +34,22 @@ Javítások ahhoz, hogy a **ZBrush** Linuxon, **Bottles**-ben rendesen működj�
 3. Indítsd a ZBrusht a Bottlesből, ahogy eddig.
 
 **Utána ne válts runnert a bottle-nél a Bottlesben.** Ha mégis, az 1–3. javítás elvész, ilyenkor csak futtasd újra a szkriptet.
+
+**Bottles-frissítés után** a Bottles néha visszaállítja a bottle-t, és visszajön a régi Wine fájlablak. Ilyenkor csak futtasd újra a szkriptet (`sh install.sh --bottle NÉV --yes`). Akárhányszor lefuttathatod.
+
+### Egyszerre csak egy ZBrush
+
+Ha elindítasz egy második ZBrusht, miközben egy már fut, a Bottles lefagy. A Bottles (Flatpak) minden indítást külön dobozban futtat, és a kettő összeakad. A kezelő ezt megakadályozza: a `~/.local/bin/wine-for-zbrush-open` fájl nélkül elindítja a ZBrusht, de ha a ZBrush már fut vagy éppen indul, csak egy értesítést kapsz.
+
+Hogy a dokkról vagy az alkalmazásmenüből is így induljon, a ZBrush menübejegyzésében (`.desktop` fájl, pl. a `~/.local/share/applications` mappában) ezt állítsd be:
+
+```
+Exec=/home/FELHASZNÁLÓ/.local/bin/wine-for-zbrush-open
+```
+
+Ha a Bottles ablakában a ▶ gombbal indítod a ZBrusht, az nincs védve.
+
+A kezelő értesítései sürgősek, így a GNOME a teljes képernyős ZBrush fölött is megmutatja őket. Addig maradnak kint, amíg be nem zárod őket.
 
 ## Ezeket a ZBrushban magadnak kell beállítani (telepítés után)
 
@@ -76,7 +92,7 @@ Visszaállítja a régi runnert, az eredeti `wintab32.dll`-t és a Wine fájlabl
 - A javított `wintab32.dll`-t bemásolja a bottle `system32` mappájába (az eredeti: `wintab32.dll.orig`).
 - A `zbfiledlg.dll`-t és a `zbfiledlg.py`-t a `system32`-be teszi, és beállítja őket a Windows fájlablakai (*FileOpenDialog / FileSaveDialog*) helyére (`system.reg`, mentés: `system.reg.bak-wine-for-zbrush`).
 - A `vcomp140`/`120`/`110`/`100` beállítását `native,builtin`-re teszi (`user.reg`).
-- Felveszi a .ztl és .zpr fájltípust a ZBrush saját ikonjaival (`~/.local/share/icons/hicolor`, és ha az ikontémád a `~/.local/share/icons` alatt van, pl. a Papirus, akkor abba is). Létrehoz egy rejtett „ZBrush” kezelőt is (`wine-for-zbrush-open.desktop` + `~/.local/bin/wine-for-zbrush-open`), ami dupla kattintásra megnyitja a fájlt a bottle-ben. A fájlnak olyan meghajtón kell lennie, amit a bottle lát.
+- Felveszi a ZBrush fájltípusait (.ztl, .zpr, valamint a .zbp, .zmt, .zsc és a többi, ugyanazok, amelyeket a ZBrush Windowson regisztrál) a ZBrush saját ikonjaival (`~/.local/share/icons/hicolor`, és ha az ikontémád a `~/.local/share/icons` alatt van, pl. a Papirus, akkor abba is). Létrehoz egy rejtett „ZBrush” kezelőt is (`wine-for-zbrush-open.desktop` + `~/.local/bin/wine-for-zbrush-open`), ami dupla kattintásra megnyitja a fájlt a bottle-ben. Ha a ZBrush már fut, a fájl abba töltődik be, ahogy Windowson. A Bottles (Flatpak) minden indítást külön dobozban, saját Wine-szerverrel futtat, ezért egy második ZBrush nem látja az elsőt, és összeakadnak. Ezért a kezelő a futó ZBrush dobozában indítja a másodikat (`flatpak enter`), az átadja a fájlt, majd kilép. A fájlnak olyan mappában kell lennie, amit a bottle lát. Ha nem ilyenben van, a ZBrush *„Unable to open”* hibája helyett értesítést kapsz (*„ZBrush can't see this file”*). Hogy a Bottles lásson egy mappát, használd a Flatsealt, vagy pl. `flatpak override --user --filesystem=xdg-desktop com.usebottles.bottles` (csak az Asztal mappa).
 
 A hibák részletes leírása angolul a `README.md`-ben van.
 
@@ -87,7 +103,7 @@ A hibák részletes leírása angolul a `README.md`-ben van.
 | | Verzió |
 |---|---|
 | ZBrush | 2023.2 (örökös licenc) |
-| Bottles | 67.4 (Flatpak, GNOME Platform 50 runtime) |
+| Bottles | 67.5 (Flatpak, GNOME Platform 50 runtime) |
 | Wine runner | soda-11.0-10 (Wine 11.0) → javított másolat: `soda-11.0-10-zbrush` |
 | Bottle | Application környezet, Windows 10, DXVK 3.1.1, VKD3D-Proton 3.0.1, sync: fsync |
 | Rendszer | Rocky Linux 9.8, kernel 5.14.0-687 |
@@ -111,3 +127,4 @@ A hibák részletes leírása angolul a `README.md`-ben van.
 
 - A megnyitó ablak a *Legutóbbiak* nézetben indul, nem az utoljára használt mappában (a régebbi GNOME portál nem veszi figyelembe a kezdőmappát).
 - A javítások csak a **soda-11.0-10** runnerrel működnek. Más runnernél a szkript nem csinál semmit.
+- Egyszerre csak egy ZBrush futhat, és ez csak akkor van védve, ha a kezelőn keresztül indítod (lásd *Egyszerre csak egy ZBrush*).

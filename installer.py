@@ -7,7 +7,7 @@
   4. Native GNOME/KDE file dialogs for Open/Import/Save/Export (zbfiledlg)
   5. Decimation Master: checks the native vcomp140 setup
   6. Optional: GNOME "not responding" warning after 20 s instead of 5 s
-  7. .ztl / .zpr file icons and double-click to open in ZBrush
+  7. ZBrush file icons (.ztl, .zpr, .zbp, .zmt...) and double-click to open in ZBrush
 
 Usage: sh install.sh [--bottle NAME] [--uninstall] [--yes]
 """
@@ -201,8 +201,14 @@ def is_wine_builtin(path):
 
 # ---- desktop integration (icons, double-click) ----------------------------
 
-MIME_TYPES = (('application/x-zbrush-tool', 'ZBrush Tool', 'ztl', 'ztl_extension_icons.ico'),
-              ('application/x-zbrush-project', 'ZBrush Project', 'zpr', 'zpr_extension_icons.ico'))
+# (mime type, description, extensions, icon in ZData, opens on double-click) - the same files ZBrush
+# registers on Windows.
+MIME_TYPES = (('application/x-zbrush-tool', 'ZBrush Tool', ('ztl',), 'ztl_extension_icons.ico', True),
+              ('application/x-zbrush-project', 'ZBrush Project', ('zpr',), 'zpr_extension_icons.ico', True),
+              ('application/x-zbrush-file', 'ZBrush File',
+               ('zbp', 'zmt', 'zsc', 'zam', 'zbr', 'zcv', 'zfp', 'zgr', 'zld', 'zli', 'zmo', 'zmv', 'znm', 'zsl', 'zst'),
+               'z_generic_extension_icons.ico', True))
+OPENABLE = [m[0] for m in MIME_TYPES if m[4]]
 DATA = os.path.expanduser(os.environ.get('XDG_DATA_HOME', '~/.local/share'))
 
 
@@ -271,15 +277,17 @@ def install_desktop(root, bottle, bdir):
     with open(os.path.join(mime_dir, 'wine-for-zbrush.xml'), 'w') as f:
         f.write('<?xml version="1.0" encoding="UTF-8"?>\n'
                 '<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">\n')
-        for mime, comment, ext, _ in MIME_TYPES:
-            f.write(f'  <mime-type type="{mime}">\n    <comment>{comment}</comment>\n'
-                    f'    <glob pattern="*.{ext}" case-sensitive="false"/>\n  </mime-type>\n')
+        for mime, comment, exts, _, _ in MIME_TYPES:
+            f.write(f'  <mime-type type="{mime}">\n    <comment>{comment}</comment>\n')
+            for ext in exts:
+                f.write(f'    <glob pattern="*.{ext}" case-sensitive="false"/>\n')
+            f.write('  </mime-type>\n')
         f.write('</mime-info>\n')
     subprocess.run(['update-mime-database', os.path.join(DATA, 'mime')], capture_output=True)
 
     # icons: hicolor PNGs, plus SVG wrappers in a user-installed icon theme
     theme_root, theme_dirs = icon_theme_dirs()
-    for mime, _, _, ico in MIME_TYPES:
+    for mime, _, _, ico, _ in MIME_TYPES:
         name = mime.replace('/', '-')
         pngs = ico_to_pngs(os.path.join(zdata, ico))
         for size, png in pngs.items():
@@ -305,18 +313,16 @@ def install_desktop(root, bottle, bdir):
     for t in filter(None, (os.path.join(DATA, 'icons', 'hicolor'), theme_root)):
         subprocess.run(['gtk-update-icon-cache', '-f', '-t', t], capture_output=True)
 
-    # double-click: launcher that turns the Linux path into a Z:\ path
+    # double-click: files/wine-for-zbrush-open.sh with this bottle's values filled in
     flatpak = '/.var/app/com.usebottles.bottles/' in root
     cli = 'flatpak run --command=bottles-cli com.usebottles.bottles' if flatpak else 'bottles-cli'
     launcher = os.path.join(os.path.expanduser('~/.local/bin'), 'wine-for-zbrush-open')
     os.makedirs(os.path.dirname(launcher), exist_ok=True)
+    script = open(os.path.join(HERE, 'files', 'wine-for-zbrush-open.sh')).read()
+    for key, value in (('CLI', cli), ('BOTTLE', bottle), ('PROGRAM', program), ('PREFIX', bdir)):
+        script = script.replace('@%s@' % key, value.replace("'", "'\\''"))
     with open(launcher, 'w') as f:
-        f.write('#!/bin/sh\n'
-                '# Opens a .ztl/.zpr file in ZBrush (Wine for ZBrush). Linux paths become Z:\\ paths.\n'
-                f'run() {{ exec {cli} run -b "{bottle}" -p "{program}" "$@"; }}\n'
-                '[ -z "$1" ] && run\n'
-                'p=$(realpath -- "$1") || run\n'
-                'run "Z:$(printf \'%s\' "$p" | sed \'s|/|\\\\|g\')"\n')
+        f.write(script)
     os.chmod(launcher, 0o755)
     apps = os.path.join(DATA, 'applications')
     os.makedirs(apps, exist_ok=True)
@@ -324,11 +330,11 @@ def install_desktop(root, bottle, bdir):
         f.write('[Desktop Entry]\nType=Application\nName=ZBrush\n'
                 f'Comment=Open in ZBrush ({bottle} bottle)\nExec={launcher} %f\n'
                 'Icon=wine-for-zbrush\nNoDisplay=true\nStartupWMClass=steam_proton\n'
-                'MimeType=' + ''.join(m[0] + ';' for m in MIME_TYPES) + '\n')
+                'MimeType=' + ''.join(m + ';' for m in OPENABLE) + '\n')
     subprocess.run(['update-desktop-database', apps], capture_output=True)
-    subprocess.run(['xdg-mime', 'default', 'wine-for-zbrush-open.desktop'] + [m[0] for m in MIME_TYPES],
+    subprocess.run(['xdg-mime', 'default', 'wine-for-zbrush-open.desktop'] + OPENABLE,
                    capture_output=True)
-    ok('.ztl / .zpr icons installed, double-click opens them in ZBrush')
+    ok('ZBrush file icons installed (.ztl, .zpr, .zbp, .zmt, ...), double-click opens them in ZBrush')
     if not theme_root:
         say('       (if you only see a blank page icon, your icon theme hides them; restart the file manager first)')
     say('       Files must be on a drive the bottle can see (e.g. E:/F:/G: or Z:).')

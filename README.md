@@ -14,7 +14,7 @@ Fixes for running **ZBrush** on Linux in **Bottles**. Install ZBrush in a bottle
 | 4 | Ugly Windows-style Open/Import/Save/Export windows | Uses your desktop's own file chooser (GNOME/KDE) |
 | 5 | Decimation Master hangs at ~90% or crashes | Checks for Microsoft `vcomp140` and the DLL override |
 | 6 | *"ZBrush is not responding"* after 5 s while loading | Optional: GNOME waits 20 s instead |
-| 7 | .ztl / .zpr files show a blank page and don't open | ZBrush's own file icons, and double-click opens them in ZBrush |
+| 7 | ZBrush files (.ztl, .zpr, .zbp, .zmt, .zsc…) show a blank page and don't open | ZBrush's own file icons, and double-click opens them in ZBrush |
 
 ## Requirements
 
@@ -34,6 +34,22 @@ Fixes for running **ZBrush** on Linux in **Bottles**. Install ZBrush in a bottle
 3. Start ZBrush from Bottles.
 
 **Don't change the bottle's runner in Bottles afterwards.** If you do, fixes 1–3 are lost; just run the script again.
+
+**After a Bottles update**, Bottles sometimes resets the bottle, and the old Wine file dialog comes back. Just run the script again (`sh install.sh --bottle NAME --yes`). You can run it as many times as you like.
+
+### Start ZBrush only once
+
+If you start a second ZBrush while one is already running, Bottles freezes. Bottles (Flatpak) runs every launch in its own sandbox, and the two break each other. The handler prevents this: `~/.local/bin/wine-for-zbrush-open` with no file starts ZBrush, but if ZBrush is already running, or still starting, you only get a notification.
+
+To use it from the dock or the app menu, point your ZBrush menu entry (`.desktop` file, e.g. in `~/.local/share/applications`) to it:
+
+```
+Exec=/home/YOU/.local/bin/wine-for-zbrush-open
+```
+
+Starting ZBrush with the ▶ button in the Bottles window isn't protected.
+
+The handler's notifications are urgent, so GNOME shows them on top of a fullscreen ZBrush too. They stay until you close them.
 
 ## Set these in ZBrush yourself (after installing)
 
@@ -76,7 +92,7 @@ This restores the old runner, the original `wintab32.dll` and Wine's file dialog
 - Copies the patched `wintab32.dll` into the bottle's `system32` (the original is kept as `wintab32.dll.orig`).
 - Installs `zbfiledlg.dll` and `zbfiledlg.py` into `system32` and registers them for the Windows *FileOpenDialog / FileSaveDialog* (`system.reg`; a backup is saved as `system.reg.bak-wine-for-zbrush`).
 - Sets `vcomp140`/`vcomp120`/`vcomp110`/`vcomp100` to `native,builtin` in `user.reg`.
-- File types `application/x-zbrush-tool` (.ztl) and `application/x-zbrush-project` (.zpr), with icons taken from ZBrush's own `ZData/*_extension_icons.ico` (in `~/.local/share/icons/hicolor`, plus your icon theme if it lives in `~/.local/share/icons`, e.g. Papirus). Also a hidden "ZBrush" handler (`wine-for-zbrush-open.desktop` + `~/.local/bin/wine-for-zbrush-open`) that opens double-clicked files in the bottle. Files must be on a drive the bottle can see.
+- File types `application/x-zbrush-tool` (.ztl), `application/x-zbrush-project` (.zpr) and `application/x-zbrush-file` (.zbp, .zmt, .zsc and the other ZBrush types, the same ones ZBrush registers on Windows), with icons taken from ZBrush's own `ZData/*_extension_icons.ico` (in `~/.local/share/icons/hicolor`, plus your icon theme if it lives in `~/.local/share/icons`, e.g. Papirus). Also a hidden "ZBrush" handler (`wine-for-zbrush-open.desktop` + `~/.local/bin/wine-for-zbrush-open`) that opens double-clicked files in the bottle. If ZBrush is already running, the file is loaded into it, like on Windows. Bottles (Flatpak) runs every launch in its own sandbox with its own wineserver, so a second ZBrush can't see the first one, and the two break each other. The handler therefore starts the second ZBrush inside the running one's sandbox (`flatpak enter`); it hands the file over and exits. Files must be in a folder the bottle can see. If a file isn't, you get a notification (*"ZBrush can't see this file"*) instead of ZBrush's *"Unable to open"*. To give Bottles access to a folder, use Flatseal or e.g. `flatpak override --user --filesystem=xdg-desktop com.usebottles.bottles` (your Desktop folder only).
 
 ### The Wine bugs
 
@@ -99,7 +115,7 @@ Source: `src/`. To build: `x86_64-w64-mingw32-gcc -O2 -s -shared -municode -o zb
 | | Version |
 |---|---|
 | ZBrush | 2023.2 (perpetual) |
-| Bottles | 67.4 (Flatpak, GNOME Platform 50 runtime) |
+| Bottles | 67.5 (Flatpak, GNOME Platform 50 runtime) |
 | Wine runner | soda-11.0-10 (Wine 11.0) → patched copy `soda-11.0-10-zbrush` |
 | Bottle | Application environment, Windows 10, DXVK 3.1.1, VKD3D-Proton 3.0.1, sync: fsync |
 | OS | Rocky Linux 9.8, kernel 5.14.0-687 |
@@ -123,3 +139,4 @@ Source: `src/`. To build: `x86_64-w64-mingw32-gcc -O2 -s -shared -municode -o zb
 
 - The open dialog starts in *Recent* instead of the last folder (the GNOME portal on older systems ignores the start folder).
 - The patches only work with **soda-11.0-10**. Other runners are refused (the script checks).
+- Only one ZBrush at a time, and only if you start it through the handler (see *Start ZBrush only once*).
